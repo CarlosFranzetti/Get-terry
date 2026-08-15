@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TERRY CATCH</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Terry Catch">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0c14">
+<meta name="description" content="An 8-bit arcade catch game. Swipe to catch the Terrys.">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%; width:100%; overflow:hidden;
+    background:#07080f;
+    overscroll-behavior:none;
+    touch-action:none;
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body {
+    display:flex; align-items:center; justify-content:center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #wrap { position:relative; line-height:0; }
+  canvas {
+    display:block;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    background:#0b0c14;
+    border-radius:2px;
+    box-shadow: 0 0 0 2px #1b1f2e, 0 0 30px rgba(94,230,94,.10), 0 0 90px rgba(0,0,0,.9);
+  }
+  /* CRT scanlines + vignette, purely cosmetic */
+  #crt {
+    position:absolute; inset:0; pointer-events:none; border-radius:2px;
+    background:
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%),
+      repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0px, rgba(0,0,0,.16) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px);
+    mix-blend-mode:multiply;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="160" height="240"></canvas>
+  <div id="crt"></div>
+</div>
+<script>
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------- constants
+var W = 160, H = 240;          // internal 8-bit resolution
+var GROUND_Y = 226;            // top of the floor strip
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d', { alpha: false });
+ctx.imageSmoothingEnabled = false;
+
+var COL = {
+  sky0:   '#141a30',
+  sky1:   '#0b0c14',
+  star:   '#3b4568',
+  ground: '#2a2140',
+  grass:  '#43356b',
+  white:  '#f4f6ff',
+  dim:    '#7c86ad',
+  green:  '#5ee65e',
+  gold:   '#ffd93d',
+  red:    '#ff4b57',
+  cyan:   '#59d7ff'
+};
+
+// ---------------------------------------------------------------- sprites
+function sprite(rows, pal) { return { rows: rows, pal: pal, w: rows[0].length, h: rows.length }; }
+
+var TERRY = sprite([
+  '..3..3..',
+  '.111111.',
+  '11111111',
+  '11b11b11',
+  '11111111',
+  '11bbbb11',
+  '11111111',
+  '.3....3.'
+], { '1': '#5ee65e', '3': '#2f9e2f', 'b': '#0d1220' });
+
+var TERRY_GOLD_PAL = { '1': '#ffd93d', '3': '#c78a10', 'b': '#3a2a00' };
+
+var BOMB = sprite([
+  '......5.',
+  '.....2..',
+  '..6666..',
+  '.666666.',
+  '66w66666',
+  '66666666',
+  '.666666.',
+  '..6666..'
+], { '6': '#454b5e', 'w': '#c9d2ea', '2': '#8a5a2b', '5': '#ffe66d' });
+
+var BASKET = sprite([
+  '77777777777777',
+  '.888888888888.',
+  '.878787878787.',
+  '.888888888888.',
+  '..8787878787..',
+  '..8888888888..',
+  '...78787878...',
+  '....888888....'
+], { '7': '#f0a93f', '8': '#a8641d' });
+
+// 3x5 pixel font ------------------------------------------------------------
+// Each glyph is five 3-wide rows, flattened to a 15-cell string at load time.
+var FONT = (function () {
+  var G = {
+    'A': ['###', '#.#', '###', '#.#', '#.#'],
+    'B': ['##.', '#.#', '##.', '#.#', '##.'],
+    'C': ['###', '#..', '#..', '#..', '###'],
+    'D': ['##.', '#.#', '#.#', '#.#', '##.'],
+    'E': ['###', '#..', '##.', '#..', '###'],
+    'F': ['###', '#..', '##.', '#..', '#..'],
+    'G': ['###', '#..', '#.#', '#.#', '###'],
+    'H': ['#.#', '#.#', '###', '#.#', '#.#'],
+    'I': ['###', '.#.', '.#.', '.#.', '###'],
+    'J': ['..#', '..#', '..#', '#.#', '###'],
+    'K': ['#.#', '#.#', '##.', '#.#', '#.#'],
+    'L': ['#..', '#..', '#..', '#..', '###'],
+    'M': ['#.#', '###', '###', '#.#', '#.#'],
+    'N': ['##.', '#.#', '#.#', '#.#', '#.#'],
+    'O': ['###', '#.#', '#.#', '#.#', '###'],
+    'P': ['###', '#.#', '###', '#..', '#..'],
+    'Q': ['###', '#.#', '#.#', '###', '..#'],
+    'R': ['###', '#.#', '###', '##.', '#.#'],
+    'S': ['###', '#..', '###', '..#', '###'],
+    'T': ['###', '.#.', '.#.', '.#.', '.#.'],
+    'U': ['#.#', '#.#', '#.#', '#.#', '###'],
+    'V': ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    'W': ['#.#', '#.#', '###', '###', '#.#'],
+    'X': ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    'Y': ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    'Z': ['###', '..#', '.#.', '#..', '###'],
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '..#', '..#', '..#'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    ' ': ['...', '...', '...', '...', '...'],
+    '!': ['.#.', '.#.', '.#.', '...', '.#.'],
+    ':': ['...', '.#.', '...', '.#.', '...'],
+    '-': ['...', '...', '###', '...', '...'],
+    '.': ['...', '...', '...', '...', '.#.'],
+    "'": ['.#.', '.#.', '...', '...', '...'],
+    '?': ['###', '..#', '.##', '...', '.#.'],
+    '/': ['..#', '..#', '.#.', '#..', '#..'],
+    '+': ['...', '.#.', '###', '.#.', '...']
+  };
+  var out = {};
+  for (var k in G) out[k] = G[k].join('');
+  return out;
+})();
+
+var CH_W = 4; // 3px glyph + 1px gap
+
+function textWidth(s, sc) { sc = sc || 1; return (s.length * CH_W - 1) * sc; }
+
+function drawText(s, x, y, color, sc) {
+  sc = sc || 1;
+  s = String(s).toUpperCase();
+  ctx.fillStyle = color;
+  for (var i = 0; i < s.length; i++) {
+    var g = FONT[s[i]];
+    if (!g) continue;
+    var gx = x + i * CH_W * sc;
+    for (var p = 0; p < 15; p++) {
+      if (g[p] !== '#') continue;
+      ctx.fillRect(gx + (p % 3) * sc, y + ((p / 3) | 0) * sc, sc, sc);
+    }
+  }
+}
+
+function drawTextCentered(s, y, color, sc) {
+  drawText(s, Math.round((W - textWidth(s, sc)) / 2), y, color, sc);
+}
+
+function drawSprite(sp, x, y, pal) {
+  var p = pal || sp.pal, rows = sp.rows;
+  x = Math.round(x); y = Math.round(y);
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    for (var c = 0; c < row.length; c++) {
+      var ch = row[c];
+      if (ch === '.') continue;
+      var col = p[ch];
+      if (!col) continue;
+      ctx.fillStyle = col;
+      ctx.fillRect(x + c, y + r, 1, 1);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- audio
+var actx = null;
+
+function audioReady() {
+  if (!actx) {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { actx = new AC(); } catch (e) { return; }
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+
+function tone(freq, dur, type, vol, delay, endFreq) {
+  if (!actx) return;
+  var t0 = actx.currentTime + (delay || 0);
+  var osc = actx.createOscillator();
+  var g = actx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, t0);
+  if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || 0.07, t0 + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g); g.connect(actx.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+
+var SFX = {
+  catch: function (n) {
+    var base = 520 + Math.min(n, 8) * 40;
+    tone(base, 0.07, 'square', 0.06, 0);
+    tone(base * 1.5, 0.09, 'square', 0.05, 0.05);
+  },
+  gold: function () {
+    tone(660, 0.06, 'square', 0.06, 0);
+    tone(880, 0.06, 'square', 0.06, 0.06);
+    tone(1320, 0.12, 'square', 0.06, 0.12);
+  },
+  miss: function () { tone(220, 0.18, 'triangle', 0.07, 0, 90); },
+  hit: function () {
+    tone(180, 0.28, 'sawtooth', 0.09, 0, 50);
+    tone(90, 0.3, 'square', 0.05, 0.02, 40);
+  },
+  level: function () {
+    tone(523, 0.07, 'square', 0.06, 0);
+    tone(659, 0.07, 'square', 0.06, 0.07);
+    tone(784, 0.14, 'square', 0.06, 0.14);
+  },
+  over: function () {
+    tone(392, 0.16, 'square', 0.07, 0);
+    tone(330, 0.16, 'square', 0.07, 0.16);
+    tone(262, 0.16, 'square', 0.07, 0.32);
+    tone(196, 0.45, 'square', 0.07, 0.48);
+  },
+  start: function () {
+    tone(392, 0.07, 'square', 0.06, 0);
+    tone(523, 0.07, 'square', 0.06, 0.07);
+    tone(784, 0.16, 'square', 0.06, 0.14);
+  }
+};
+
+// ---------------------------------------------------------------- state
+var BEST_KEY = 'terrycatch.best';
+var best = 0;
+try { best = parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) {}
+
+var mode = 'title';           // title | play | over
+var player, entities, particles, floaters, stars;
+var score, lives, level, caught, streak, spawnTimer, shake, flash, hintTimer;
+var overTimer, titleTime, newBest, nextLifeAt;
+
+var MAX_LIVES = 3, LIFE_EVERY = 60;
+
+function resetGame() {
+  player = { x: (W - BASKET.w) / 2, y: GROUND_Y - BASKET.h, vx: 0 };
+  entities = [];
+  particles = [];
+  floaters = [];
+  score = 0; lives = MAX_LIVES; level = 1; caught = 0; streak = 0;
+  nextLifeAt = LIFE_EVERY;
+  spawnTimer = 0.6; shake = 0; flash = 0; hintTimer = 3.2;
+  newBest = false;
+}
+
+function makeStars() {
+  stars = [];
+  for (var i = 0; i < 34; i++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * (GROUND_Y - 10), s: Math.random() < 0.35 ? 2 : 1 });
+  }
+}
+makeStars();
+resetGame();
+
+// ---------------------------------------------------------------- helpers
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function pad(n, len) { n = String(n); while (n.length < len) n = '0' + n; return n; }
+
+function burst(x, y, color, n, power) {
+  for (var i = 0; i < n; i++) {
+    var a = Math.random() * Math.PI * 2;
+    var sp = rand(20, 70) * (power || 1);
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 20,
+      life: rand(0.3, 0.7), max: 0.7, color: color
+    });
+  }
+}
+
+function floater(x, y, text, color) {
+  floaters.push({ x: x, y: y, text: text, color: color, life: 0.9 });
+}
+
+// ---------------------------------------------------------------- difficulty
+// Difficulty ramps through fall speed, not through crowding: too many Terrys
+// on screen at once creates splits one basket physically cannot cover, which
+// reads as unfair rather than hard.
+function fallSpeed() { return 52 + level * 9; }
+function spawnDelay() { return Math.max(0.5, 1.6 - level * 0.08); }
+function maxOnScreen() { return 4; }
+function bombChance() { return Math.min(0.34, 0.05 + level * 0.028); }
+function goldChance() { return 0.07; }
+function multiplier() { return Math.min(1 + Math.floor(streak / 5), 5); }
+
+function crowded(x) {
+  for (var i = 0; i < entities.length; i++) {
+    if (entities[i].y < 46 && Math.abs(entities[i].x - x) < 16) return true;
+  }
+  return false;
+}
+
+function spawn() {
+  var kind = 'terry';
+  var r = Math.random();
+  if (r < bombChance()) kind = 'bomb';
+  else if (r < bombChance() + goldChance()) kind = 'gold';
+  // Keep a new drop clear of anything still near the top. A bomb sharing a
+  // lane with a Terry is a no-win: catching costs a life, missing costs one too.
+  var x = rand(2, W - 10);
+  for (var t = 0; t < 8 && crowded(x); t++) x = rand(2, W - 10);
+
+  entities.push({
+    kind: kind,
+    x: x,
+    ex: x,
+    y: -9,
+    vy: fallSpeed() * rand(0.88, 1.16),
+    sway: rand(0, Math.PI * 2),
+    swayAmt: kind === 'bomb' ? 0 : rand(0, 9)
+  });
+}
+
+// ---------------------------------------------------------------- input
+var scale = 1;
+var touchId = null, lastX = 0, lastT = 0, kbDir = 0;
+var SENS = 1.12;
+
+function pointerDown(x) {
+  audioReady();
+  if (mode === 'title') { startGame(); return; }
+  if (mode === 'over' && overTimer <= 0) { startGame(); return; }
+  player.vx *= 0.25;
+}
+
+function startGame() {
+  resetGame();
+  mode = 'play';
+  SFX.start();
+}
+
+canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+document.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  if (touchId === null && e.changedTouches && e.changedTouches.length) {
+    var t = e.changedTouches[0];
+    touchId = t.identifier;
+    lastX = t.clientX;
+    lastT = performance.now();
+    pointerDown(t.clientX);
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', function (e) {
+  e.preventDefault();
+  if (touchId === null || mode !== 'play') return;
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+    if (t.identifier !== touchId) continue;
+    var now = performance.now();
+    var dxScreen = t.clientX - lastX;
+    var dx = (dxScreen / scale) * SENS;      // screen px -> game px
+    player.x += dx;
+    var dt = (now - lastT) / 1000;
+    if (dt > 0.001) player.vx = clamp(dx / dt, -700, 700) * 0.45;
+    lastX = t.clientX;
+    lastT = now;
+  }
+}, { passive: false });
+
+function touchEnd(e) {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === touchId) touchId = null;
+  }
+}
+document.addEventListener('touchend', touchEnd, { passive: false });
+document.addEventListener('touchcancel', touchEnd, { passive: false });
+
+// mouse + keyboard so it is playable on a desktop too
+document.addEventListener('mousedown', function (e) {
+  touchId = 'mouse'; lastX = e.clientX; lastT = performance.now();
+  pointerDown(e.clientX);
+});
+document.addEventListener('mousemove', function (e) {
+  if (touchId !== 'mouse' || mode !== 'play') return;
+  var now = performance.now();
+  var dx = ((e.clientX - lastX) / scale) * SENS;
+  player.x += dx;
+  var dt = (now - lastT) / 1000;
+  if (dt > 0.001) player.vx = clamp(dx / dt, -700, 700) * 0.45;
+  lastX = e.clientX; lastT = now;
+});
+document.addEventListener('mouseup', function () { if (touchId === 'mouse') touchId = null; });
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'ArrowLeft' || e.key === 'a') kbDir = -1;
+  else if (e.key === 'ArrowRight' || e.key === 'd') kbDir = 1;
+  else if (e.key === ' ' || e.key === 'Enter') {
+    audioReady();
+    if (mode === 'title' || (mode === 'over' && overTimer <= 0)) startGame();
+  }
+  if (e.key.indexOf('Arrow') === 0 || e.key === ' ') e.preventDefault();
+});
+document.addEventListener('keyup', function (e) {
+  if ((e.key === 'ArrowLeft' || e.key === 'a') && kbDir === -1) kbDir = 0;
+  if ((e.key === 'ArrowRight' || e.key === 'd') && kbDir === 1) kbDir = 0;
+});
+
+// ---------------------------------------------------------------- resize
+function resize() {
+  var vw = window.innerWidth, vh = window.innerHeight;
+  if (window.visualViewport) { vw = window.visualViewport.width; vh = window.visualViewport.height; }
+  var cs = getComputedStyle(document.body);
+  vw -= parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  vh -= parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  var s = Math.min(vw / W, vh / H);
+  // On low-DPI screens snap to a whole ratio so pixels stay even; on retina
+  // phones the uneven device pixels are invisible and the extra size is worth
+  // far more, so take the exact fit.
+  if (s > 1 && (window.devicePixelRatio || 1) < 2) s = Math.floor(s);
+  scale = s;
+  canvas.style.width = Math.round(W * s) + 'px';
+  canvas.style.height = Math.round(H * s) + 'px';
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- update
+function loseLife(x, y, reason) {
+  lives--;
+  streak = 0;
+  shake = 5;
+  flash = 0.12;
+  if (reason === 'bomb') { SFX.hit(); burst(x, y, COL.red, 16, 1.3); }
+  else { SFX.miss(); burst(x, GROUND_Y - 2, COL.dim, 8, 0.8); }
+  if (lives <= 0) {
+    lives = 0;
+    mode = 'over';
+    overTimer = 0.9;
+    if (score > best) {
+      best = score; newBest = true;
+      try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
+    }
+    SFX.over();
+  }
+}
+
+function update(dt) {
+  titleTime += dt;
+  if (shake > 0) shake = Math.max(0, shake - dt * 22);
+  if (flash > 0) flash = Math.max(0, flash - dt);
+
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.vy += 260 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  for (var f = floaters.length - 1; f >= 0; f--) {
+    var fl = floaters[f];
+    fl.life -= dt;
+    fl.y -= 16 * dt;
+    if (fl.life <= 0) floaters.splice(f, 1);
+  }
+
+  if (mode === 'over' && overTimer > 0) overTimer -= dt;
+  if (mode !== 'play') return;
+
+  if (hintTimer > 0) hintTimer -= dt;
+
+  // --- player
+  if (kbDir !== 0) player.vx = kbDir * 150;
+  if (touchId === null) {
+    player.x += player.vx * dt;
+    player.vx *= Math.pow(0.0025, dt);          // friction
+    if (Math.abs(player.vx) < 3) player.vx = 0;
+  }
+  if (player.x < 0) { player.x = 0; player.vx = 0; }
+  if (player.x > W - BASKET.w) { player.x = W - BASKET.w; player.vx = 0; }
+
+  // --- spawning
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    if (entities.length < maxOnScreen()) spawn();
+    spawnTimer = spawnDelay() * rand(0.8, 1.2);
+  }
+
+  // --- entities
+  var rimY = player.y;                 // catch line = top of the basket
+  var pL = player.x + 1, pR = player.x + BASKET.w - 1;
+
+  for (var e = entities.length - 1; e >= 0; e--) {
+    var en = entities[e];
+    en.y += en.vy * dt;
+    en.sway += dt * 3;
+    // swayed screen position, kept fully on screen so sprites never clip
+    en.ex = clamp(en.x + Math.sin(en.sway) * en.swayAmt, 0, W - 8);
+    var cx = en.ex + 4;
+
+    // caught?
+    if (en.y + 7 >= rimY && en.y + 7 <= rimY + 7 && cx > pL && cx < pR) {
+      entities.splice(e, 1);
+      if (en.kind === 'bomb') {
+        loseLife(cx, rimY, 'bomb');
+      } else {
+        caught++;
+        streak++;
+        var m = multiplier();
+        var gain = (en.kind === 'gold' ? 5 : 1) * m;
+        score += gain;
+        burst(cx, rimY, en.kind === 'gold' ? COL.gold : COL.green, en.kind === 'gold' ? 14 : 8, 1);
+        floater(cx, rimY - 8, '+' + gain, en.kind === 'gold' ? COL.gold : COL.white);
+        if (en.kind === 'gold') SFX.gold(); else SFX.catch(streak);
+        while (score >= nextLifeAt) {
+          nextLifeAt += LIFE_EVERY;
+          if (lives < MAX_LIVES) {
+            lives++;
+            floater(W / 2, 104, '1up', COL.green);
+            SFX.level();
+          }
+        }
+        var nl = 1 + Math.floor(caught / 8);
+        if (nl > level) {
+          level = nl;
+          SFX.level();
+          floater(W / 2, 90, 'level ' + level, COL.cyan);
+        }
+      }
+      continue;
+    }
+
+    // off the bottom
+    if (en.y > H) {
+      entities.splice(e, 1);
+      if (en.kind !== 'bomb') loseLife(en.ex, GROUND_Y, 'miss');
+    }
+  }
+}
+
+// ---------------------------------------------------------------- draw
+function drawBackground() {
+  // sky gradient, banded like a real 8-bit tileset
+  var bands = 6;
+  for (var b = 0; b < bands; b++) {
+    var t = b / (bands - 1);
+    var r = Math.round(20 + t * -9), g = Math.round(26 + t * -14), bl = Math.round(48 + t * -28);
+    ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + bl + ')';
+    ctx.fillRect(0, Math.floor(b * GROUND_Y / bands), W, Math.ceil(GROUND_Y / bands) + 1);
+  }
+  ctx.fillStyle = COL.star;
+  for (var i = 0; i < stars.length; i++) {
+    var s = stars[i];
+    ctx.fillRect(s.x | 0, s.y | 0, s.s, s.s);
+  }
+  // floor
+  ctx.fillStyle = COL.grass;
+  ctx.fillRect(0, GROUND_Y, W, 2);
+  ctx.fillStyle = COL.ground;
+  ctx.fillRect(0, GROUND_Y + 2, W, H - GROUND_Y - 2);
+  ctx.fillStyle = '#1e1830';
+  for (var x = 0; x < W; x += 8) ctx.fillRect(x + ((x / 8) % 2 ? 4 : 0), GROUND_Y + 5, 3, 1);
+}
+
+function drawEntities() {
+  for (var i = 0; i < entities.length; i++) {
+    var en = entities[i];
+    if (en.kind === 'bomb') drawSprite(BOMB, en.ex, en.y);
+    else if (en.kind === 'gold') drawSprite(TERRY, en.ex, en.y, TERRY_GOLD_PAL);
+    else drawSprite(TERRY, en.ex, en.y);
+  }
+}
+
+function drawParticles() {
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    ctx.fillStyle = p.color;
+    var sz = p.life > 0.35 ? 2 : 1;
+    ctx.fillRect(p.x | 0, p.y | 0, sz, sz);
+  }
+  for (var f = 0; f < floaters.length; f++) {
+    var fl = floaters[f];
+    if (fl.life < 0.3 && ((fl.life * 30) | 0) % 2 === 0) continue;   // blink out
+    drawText(fl.text, Math.round(fl.x - textWidth(fl.text) / 2), fl.y | 0, fl.color);
+  }
+}
+
+function drawHUD() {
+  ctx.fillStyle = '#06080f';
+  ctx.fillRect(0, 0, W, 11);
+  ctx.fillStyle = '#232a44';
+  ctx.fillRect(0, 11, W, 1);
+
+  drawText(pad(score, 5), 3, 3, COL.white);
+
+  var mult = multiplier();
+  if (mode === 'play' && mult > 1) drawText('x' + mult, 27, 3, COL.gold);
+
+  var lv = 'lv' + level;
+  drawText(lv, Math.round((W - textWidth(lv)) / 2), 3, COL.cyan);
+
+  // lives as little Terry heads
+  for (var i = 0; i < 3; i++) {
+    var lx = W - 4 - (i + 1) * 9;
+    if (i < lives) {
+      ctx.fillStyle = COL.green;
+      ctx.fillRect(lx, 3, 6, 5);
+      ctx.fillStyle = '#0d1220';
+      ctx.fillRect(lx + 1, 4, 1, 1);
+      ctx.fillRect(lx + 4, 4, 1, 1);
+      ctx.fillRect(lx + 2, 6, 2, 1);
+    } else {
+      ctx.fillStyle = '#2b3350';
+      ctx.fillRect(lx, 3, 6, 5);
+    }
+  }
+}
+
+function drawTitle() {
+  var bob = Math.sin(titleTime * 3) * 3;
+  drawTextCentered('terry', 46, COL.green, 3);
+  drawTextCentered('catch', 68, COL.gold, 3);
+  ctx.fillStyle = '#232a44';
+  ctx.fillRect(28, 88, W - 56, 1);
+
+  drawSprite(TERRY, W / 2 - 4, 104 + bob);
+
+  drawTextCentered('swipe to move', 132, COL.white);
+  drawTextCentered('catch the terrys', 144, COL.dim);
+  drawTextCentered('dodge the bombs', 156, COL.dim);
+
+  drawSprite(TERRY, 40, 168);
+  drawText('+1', 52, 171, COL.white);
+  drawSprite(TERRY, 78, 168, TERRY_GOLD_PAL);
+  drawText('+5', 90, 171, COL.gold);
+  drawSprite(BOMB, 112, 168);
+  drawText('-1', 124, 171, COL.red);
+
+  if (((titleTime * 2) | 0) % 2 === 0) drawTextCentered('tap to start', 198, COL.gold);
+  if (best > 0) drawTextCentered('best ' + pad(best, 5), 212, COL.dim);
+}
+
+function drawOver() {
+  ctx.fillStyle = '#06080f';
+  ctx.fillRect(0, 60, W, 116);
+  ctx.fillStyle = '#232a44';
+  ctx.fillRect(0, 60, W, 1);
+  ctx.fillRect(0, 175, W, 1);
+
+  drawTextCentered('game', 72, COL.red, 2);
+  drawTextCentered('over', 90, COL.red, 2);
+
+  drawTextCentered('score ' + pad(score, 5), 112, COL.white);
+  drawTextCentered('terrys ' + caught, 124, COL.green);
+
+  if (newBest) {
+    if (((titleTime * 3) | 0) % 2 === 0) drawTextCentered('new best!', 140, COL.gold);
+  } else {
+    drawTextCentered('best ' + pad(best, 5), 140, COL.dim);
+  }
+
+  drawTextCentered('lv ' + level, 156, COL.cyan);
+
+  if (overTimer <= 0 && ((titleTime * 2) | 0) % 2 === 0) {
+    drawTextCentered('tap to retry', 192, COL.white);
+  }
+}
+
+function render() {
+  ctx.save();
+  if (shake > 0) {
+    ctx.translate(Math.round(rand(-shake, shake)), Math.round(rand(-shake, shake) * 0.6));
+  }
+
+  drawBackground();
+
+  if (mode === 'title') {
+    drawTitle();
+  } else {
+    drawEntities();
+    drawSprite(BASKET, player.x, player.y);
+    drawParticles();
+    drawHUD();
+    if (mode === 'play' && hintTimer > 0) {
+      drawTextCentered('swipe anywhere', 200, 'rgba(244,246,255,' + clamp(hintTimer, 0, 1).toFixed(2) + ')');
+    }
+    if (mode === 'over') drawOver();
+  }
+
+  ctx.restore();
+
+  if (flash > 0) {
+    ctx.fillStyle = 'rgba(255,80,90,' + (flash * 2.2).toFixed(2) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// ---------------------------------------------------------------- loop
+var last = performance.now();
+titleTime = 0;
+
+function frame(now) {
+  var dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.05) dt = 0.05;          // survive tab switches / stalls
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+document.addEventListener('visibilitychange', function () {
+  last = performance.now();
+  if (document.hidden) touchId = null;
+});
+
+})();
+</script>
+</body>
+</html>

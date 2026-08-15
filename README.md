@@ -1,0 +1,60 @@
+# TERRY CATCH
+
+A tiny 8-bit arcade game built for iOS Safari. Terrys fall from the sky — swipe
+to slide your basket under them, and don't catch the bombs.
+
+Everything lives in a single `index.html`: no build step, no dependencies, no
+assets. Sprites, the 3×5 pixel font, and the chiptune sounds are all generated
+in code.
+
+## Play
+
+Open `index.html` in a browser, or serve the folder and visit it on your phone:
+
+```sh
+python3 -m http.server 8000
+# then open http://<your-computer-ip>:8000 on the phone
+```
+
+On iPhone, tap the share icon and **Add to Home Screen** to launch it
+fullscreen with no browser chrome.
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| Swipe / drag anywhere | Slide the basket — a fast flick keeps sliding with momentum |
+| Tap | Start, or retry after game over |
+| ← / → or A / D | Move (desktop) |
+| Space / Enter | Start or retry (desktop) |
+
+You don't need to touch the basket itself — dragging anywhere on screen moves
+it, so your thumb never covers the action.
+
+## Rules
+
+- **Terry** `+1` — catch it.
+- **Gold Terry** `+5` — rarer, worth five.
+- **Bomb** `-1 life` — let it fall past you.
+- Missing a Terry also costs a life. You start with three.
+- Every 5 catches in a row raises the score multiplier, up to ×5. Taking a hit
+  resets the streak.
+- Every 8 catches raises the level, and everything falls faster.
+- Every 60 points earns a life back, up to the maximum of three.
+- Your best score is saved in `localStorage`.
+
+## Notes on how it's built
+
+- The canvas backing store is a true 160×240 pixels and is scaled up with CSS
+  `image-rendering: pixelated`, so every pixel is a real pixel rather than a
+  filtered one.
+- On retina screens the canvas takes the exact fit for maximum size; on low-DPI
+  displays the scale snaps to a whole number so pixels stay even.
+- Difficulty ramps through fall speed rather than through crowding, and at most
+  four items fall at once. New drops avoid the lane of anything still near the
+  top, so a bomb never traps a Terry in a position where catching and missing
+  both cost a life.
+- Touch handlers call `preventDefault` and the page sets `touch-action: none`
+  to stop iOS scroll, rubber-banding, and double-tap zoom mid-game.
+- Audio is WebAudio square waves, created on the first touch to satisfy iOS
+  autoplay rules.
