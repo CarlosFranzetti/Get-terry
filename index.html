@@ -71,6 +71,8 @@ var COL = {
   dim:    '#7c86ad',
   green:  '#5ee65e',
   gold:   '#ffd93d',
+  skin:   '#aa7170',
+  cap:    '#514039',
   red:    '#ff4b57',
   cyan:   '#59d7ff'
 };
@@ -78,39 +80,67 @@ var COL = {
 // ---------------------------------------------------------------- sprites
 function sprite(rows, pal) { return { rows: rows, pal: pal, w: rows[0].length, h: rows.length }; }
 
+// Terry himself: the photo, cropped to the head, reduced to a 16x18 grid and
+// quantised to 13 colours, then cut to an ellipse so he reads as a sprite
+// rather than a rectangular photo tile.
 var TERRY = sprite([
-  '..3..3..',
-  '.111111.',
-  '11111111',
-  '11b11b11',
-  '11111111',
-  '11bbbb11',
-  '11111111',
-  '.3....3.'
-], { '1': '#5ee65e', '3': '#2f9e2f', 'b': '#0d1220' });
+  '................',
+  '.....000112.....',
+  '...3333334444...',
+  '..334441111221..',
+  '..434556655511..',
+  '.03566666666534.',
+  '.47866999aa6a92.',
+  '.31b5442899a698.',
+  '77c8113328a43327',
+  'c18a4134685330c3',
+  '2a86556a9aaa5880',
+  '.5b8666a9988a9b.',
+  '.8b89aaa222c88b.',
+  '.cb9a5402000c8b.',
+  '..ca624c865128..',
+  '...552299516c...',
+  '....11251112....',
+  '.....333333.....'
+], {
+  '0': '#665a55', '1': '#765550', '2': '#816963', '3': '#514039',
+  '4': '#624d48', '5': '#8a5755', '6': '#a36763', '7': '#211816',
+  '8': '#bb9498', '9': '#bb8180', 'a': '#aa7170', 'b': '#d6c6c6',
+  'c': '#937c78'
+});
 
-var TERRY_GOLD_PAL = { '1': '#ffd93d', '3': '#c78a10', 'b': '#3a2a00' };
+// same pixels, luminance mapped onto gold, for the bonus Terry
+var TERRY_GOLD_PAL = {
+  '0': '#6f5d20', '1': '#705e20', '2': '#826d25', '3': '#554718',
+  '4': '#64541d', '5': '#786523', '6': '#8c7528', '7': '#28220b',
+  '8': '#b69934', '9': '#a78c30', 'a': '#967e2b', 'b': '#e3bf42',
+  'c': '#967e2b'
+};
 
 var BOMB = sprite([
-  '......5.',
-  '.....2..',
-  '..6666..',
-  '.666666.',
-  '66w66666',
-  '66666666',
-  '.666666.',
-  '..6666..'
+  '.......55...',
+  '......2.....',
+  '....6666....',
+  '..66666666..',
+  '.6666666666.',
+  '.66ww666666.',
+  '.6666666666.',
+  '.6666666666.',
+  '.6666666666.',
+  '.6666666666.',
+  '..66666666..',
+  '....6666....'
 ], { '6': '#454b5e', 'w': '#c9d2ea', '2': '#8a5a2b', '5': '#ffe66d' });
 
 var BASKET = sprite([
-  '77777777777777',
-  '.888888888888.',
-  '.878787878787.',
-  '.888888888888.',
-  '..8787878787..',
-  '..8888888888..',
-  '...78787878...',
-  '....888888....'
+  '7777777777777777',
+  '.88888888888888.',
+  '.87878787878787.',
+  '.88888888888888.',
+  '..878787878787..',
+  '..888888888888..',
+  '...7878787878...',
+  '....88888888....'
 ], { '7': '#f0a93f', '8': '#a8641d' });
 
 // 3x5 pixel font ------------------------------------------------------------
@@ -325,16 +355,17 @@ function floater(x, y, text, color) {
 // Difficulty ramps through fall speed, not through crowding: too many Terrys
 // on screen at once creates splits one basket physically cannot cover, which
 // reads as unfair rather than hard.
-function fallSpeed() { return 52 + level * 9; }
+function fallSpeed() { return 56 + level * 10; }
 function spawnDelay() { return Math.max(0.5, 1.6 - level * 0.08); }
 function maxOnScreen() { return 4; }
 function bombChance() { return Math.min(0.34, 0.05 + level * 0.028); }
 function goldChance() { return 0.07; }
 function multiplier() { return Math.min(1 + Math.floor(streak / 5), 5); }
 
-function crowded(x) {
+function crowded(x, w) {
   for (var i = 0; i < entities.length; i++) {
-    if (entities[i].y < 46 && Math.abs(entities[i].x - x) < 16) return true;
+    var e = entities[i];
+    if (e.y < 52 && Math.abs(e.x - x) < (w + e.sp.w) / 2 + 4) return true;
   }
   return false;
 }
@@ -344,19 +375,24 @@ function spawn() {
   var r = Math.random();
   if (r < bombChance()) kind = 'bomb';
   else if (r < bombChance() + goldChance()) kind = 'gold';
+
+  var sp = kind === 'bomb' ? BOMB : TERRY;
+  var maxX = W - sp.w - 2;
   // Keep a new drop clear of anything still near the top. A bomb sharing a
   // lane with a Terry is a no-win: catching costs a life, missing costs one too.
-  var x = rand(2, W - 10);
-  for (var t = 0; t < 8 && crowded(x); t++) x = rand(2, W - 10);
+  var x = rand(2, maxX);
+  for (var t = 0; t < 8 && crowded(x, sp.w); t++) x = rand(2, maxX);
 
   entities.push({
     kind: kind,
+    sp: sp,
+    pal: kind === 'gold' ? TERRY_GOLD_PAL : null,
     x: x,
     ex: x,
-    y: -9,
+    y: -sp.h,
     vy: fallSpeed() * rand(0.88, 1.16),
     sway: rand(0, Math.PI * 2),
-    swayAmt: kind === 'bomb' ? 0 : rand(0, 9)
+    swayAmt: kind === 'bomb' ? 0 : rand(0, 8)
   });
 }
 
@@ -536,14 +572,18 @@ function update(dt) {
 
   for (var e = entities.length - 1; e >= 0; e--) {
     var en = entities[e];
+    var prevBottom = en.y + en.sp.h - 1;
     en.y += en.vy * dt;
     en.sway += dt * 3;
     // swayed screen position, kept fully on screen so sprites never clip
-    en.ex = clamp(en.x + Math.sin(en.sway) * en.swayAmt, 0, W - 8);
-    var cx = en.ex + 4;
+    en.ex = clamp(en.x + Math.sin(en.sway) * en.swayAmt, 0, W - en.sp.w);
+    var cx = en.ex + en.sp.w / 2;
+    var bottom = en.y + en.sp.h - 1;
 
-    // caught?
-    if (en.y + 7 >= rimY && en.y + 7 <= rimY + 7 && cx > pL && cx < pR) {
+    // Caught? Test the frame in which the bottom edge crosses the rim, rather
+    // than "is it within N pixels of the rim" — at high fall speeds a sprite
+    // can skip past a fixed band between two frames.
+    if (prevBottom < rimY && bottom >= rimY && cx > pL && cx < pR) {
       entities.splice(e, 1);
       if (en.kind === 'bomb') {
         loseLife(cx, rimY, 'bomb');
@@ -609,9 +649,7 @@ function drawBackground() {
 function drawEntities() {
   for (var i = 0; i < entities.length; i++) {
     var en = entities[i];
-    if (en.kind === 'bomb') drawSprite(BOMB, en.ex, en.y);
-    else if (en.kind === 'gold') drawSprite(TERRY, en.ex, en.y, TERRY_GOLD_PAL);
-    else drawSprite(TERRY, en.ex, en.y);
+    drawSprite(en.sp, en.ex, en.y, en.pal);
   }
 }
 
@@ -643,19 +681,21 @@ function drawHUD() {
   var lv = 'lv' + level;
   drawText(lv, Math.round((W - textWidth(lv)) / 2), 3, COL.cyan);
 
-  // lives as little Terry heads
+  // lives as little Terry heads: cap band, two eyes, moustache
   for (var i = 0; i < 3; i++) {
     var lx = W - 4 - (i + 1) * 9;
     if (i < lives) {
-      ctx.fillStyle = COL.green;
-      ctx.fillRect(lx, 3, 6, 5);
-      ctx.fillStyle = '#0d1220';
-      ctx.fillRect(lx + 1, 4, 1, 1);
-      ctx.fillRect(lx + 4, 4, 1, 1);
-      ctx.fillRect(lx + 2, 6, 2, 1);
+      ctx.fillStyle = COL.cap;
+      ctx.fillRect(lx, 2, 7, 2);
+      ctx.fillStyle = COL.skin;
+      ctx.fillRect(lx, 4, 7, 5);
+      ctx.fillStyle = '#211816';
+      ctx.fillRect(lx + 1, 5, 1, 1);
+      ctx.fillRect(lx + 5, 5, 1, 1);
+      ctx.fillRect(lx + 2, 7, 3, 1);
     } else {
       ctx.fillStyle = '#2b3350';
-      ctx.fillRect(lx, 3, 6, 5);
+      ctx.fillRect(lx, 3, 7, 6);
     }
   }
 }
@@ -667,18 +707,18 @@ function drawTitle() {
   ctx.fillStyle = '#232a44';
   ctx.fillRect(28, 88, W - 56, 1);
 
-  drawSprite(TERRY, W / 2 - 4, 104 + bob);
+  drawSprite(TERRY, W / 2 - TERRY.w / 2, 98 + bob);
 
-  drawTextCentered('swipe to move', 132, COL.white);
-  drawTextCentered('catch the terrys', 144, COL.dim);
-  drawTextCentered('dodge the bombs', 156, COL.dim);
+  drawTextCentered('swipe to move', 130, COL.white);
+  drawTextCentered('catch the terrys', 142, COL.dim);
+  drawTextCentered('dodge the bombs', 154, COL.dim);
 
-  drawSprite(TERRY, 40, 168);
-  drawText('+1', 52, 171, COL.white);
-  drawSprite(TERRY, 78, 168, TERRY_GOLD_PAL);
-  drawText('+5', 90, 171, COL.gold);
-  drawSprite(BOMB, 112, 168);
-  drawText('-1', 124, 171, COL.red);
+  drawSprite(TERRY, 24, 164);
+  drawText('+1', 42, 171, COL.white);
+  drawSprite(TERRY, 62, 164, TERRY_GOLD_PAL);
+  drawText('+5', 80, 171, COL.gold);
+  drawSprite(BOMB, 100, 167);
+  drawText('-1', 114, 171, COL.red);
 
   if (((titleTime * 2) | 0) % 2 === 0) drawTextCentered('tap to start', 198, COL.gold);
   if (best > 0) drawTextCentered('best ' + pad(best, 5), 212, COL.dim);

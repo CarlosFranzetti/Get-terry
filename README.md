@@ -49,6 +49,10 @@ it, so your thumb never covers the action.
 
 ## Notes on how it's built
 
+- Terry's sprite is the real photo: the head was cropped out, reduced to a
+  16×18 grid, quantised to 13 colours, and masked to an ellipse so he reads as
+  a sprite instead of a rectangular photo tile. The gold bonus Terry is the
+  same pixels with their luminance mapped onto gold.
 - The canvas backing store is a true 160×240 pixels and is scaled up with CSS
   `image-rendering: pixelated`, so every pixel is a real pixel rather than a
   filtered one.
