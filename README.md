@@ -49,15 +49,17 @@ it, so your thumb never covers the action.
 
 ## Notes on how it's built
 
-- Terry's sprite is the real photo: the head was cropped out, reduced to a
-  16×18 grid, quantised to 13 colours, and masked to an ellipse so he reads as
-  a sprite instead of a rectangular photo tile. The gold bonus Terry is the
-  same pixels with their luminance mapped onto gold.
-- The canvas backing store is a true 160×240 pixels and is scaled up with CSS
-  `image-rendering: pixelated`, so every pixel is a real pixel rather than a
-  filtered one.
-- On retina screens the canvas takes the exact fit for maximum size; on low-DPI
-  displays the scale snaps to a whole number so pixels stay even.
+- Terry is an actual photograph, not pixel art. The head is inlined as a 4.9 KB
+  JPEG data URI and clipped to an ellipse on an offscreen canvas at load time,
+  so it stays a real image while everything around it stays 8-bit. The gold
+  bonus Terry is the same photo with its luminance remapped onto gold at
+  runtime, which avoids shipping a second image.
+- The game is laid out in 160×240 logical pixels, but the canvas backing store
+  runs at device resolution — a 160×240 buffer would reduce a photograph to
+  mush. The context is scaled by a whole number of device pixels per game
+  pixel, so the pixel-art sprites and the bitmap font still land on exact pixel
+  boundaries and stay crisp. Smoothing is switched on only while drawing the
+  photo.
 - Difficulty ramps through fall speed rather than through crowding, and at most
   four items fall at once. New drops avoid the lane of anything still near the
   top, so a bomb never traps a Terry in a position where catching and missing

@@ -40,7 +40,7 @@
     position:absolute; inset:0; pointer-events:none; border-radius:2px;
     background:
       radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%),
-      repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0px, rgba(0,0,0,.16) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px);
+      repeating-linear-gradient(to bottom, rgba(0,0,0,.08) 0px, rgba(0,0,0,.08) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 4px);
     mix-blend-mode:multiply;
   }
 </style>
@@ -80,43 +80,6 @@ var COL = {
 // ---------------------------------------------------------------- sprites
 function sprite(rows, pal) { return { rows: rows, pal: pal, w: rows[0].length, h: rows.length }; }
 
-// Terry himself: the photo, cropped to the head, reduced to a 16x18 grid and
-// quantised to 13 colours, then cut to an ellipse so he reads as a sprite
-// rather than a rectangular photo tile.
-var TERRY = sprite([
-  '................',
-  '.....000112.....',
-  '...3333334444...',
-  '..334441111221..',
-  '..434556655511..',
-  '.03566666666534.',
-  '.47866999aa6a92.',
-  '.31b5442899a698.',
-  '77c8113328a43327',
-  'c18a4134685330c3',
-  '2a86556a9aaa5880',
-  '.5b8666a9988a9b.',
-  '.8b89aaa222c88b.',
-  '.cb9a5402000c8b.',
-  '..ca624c865128..',
-  '...552299516c...',
-  '....11251112....',
-  '.....333333.....'
-], {
-  '0': '#665a55', '1': '#765550', '2': '#816963', '3': '#514039',
-  '4': '#624d48', '5': '#8a5755', '6': '#a36763', '7': '#211816',
-  '8': '#bb9498', '9': '#bb8180', 'a': '#aa7170', 'b': '#d6c6c6',
-  'c': '#937c78'
-});
-
-// same pixels, luminance mapped onto gold, for the bonus Terry
-var TERRY_GOLD_PAL = {
-  '0': '#6f5d20', '1': '#705e20', '2': '#826d25', '3': '#554718',
-  '4': '#64541d', '5': '#786523', '6': '#8c7528', '7': '#28220b',
-  '8': '#b69934', '9': '#a78c30', 'a': '#967e2b', 'b': '#e3bf42',
-  'c': '#967e2b'
-};
-
 var BOMB = sprite([
   '.......55...',
   '......2.....',
@@ -133,15 +96,76 @@ var BOMB = sprite([
 ], { '6': '#454b5e', 'w': '#c9d2ea', '2': '#8a5a2b', '5': '#ffe66d' });
 
 var BASKET = sprite([
-  '7777777777777777',
-  '.88888888888888.',
-  '.87878787878787.',
-  '.88888888888888.',
-  '..878787878787..',
-  '..888888888888..',
-  '...7878787878...',
-  '....88888888....'
+  '777777777777777777',
+  '.8888888888888888.',
+  '.8787878787878787.',
+  '.8888888888888888.',
+  '..87878787878787..',
+  '..88888888888888..',
+  '...787878787878...',
+  '....8888888888....'
 ], { '7': '#f0a93f', '8': '#a8641d' });
+
+// ---------------------------------------------------------------- Terry
+// Terry is the actual photograph, not pixel art. The head is inlined as a
+// JPEG data URI and clipped to an ellipse at load time, so it stays a real
+// image while the rest of the game stays 8-bit. FACE_SP is only the logical
+// size the game reasons about — collision, spawn bounds, layout.
+var FACE_SP = { w: 18, h: 20 };
+
+var FACE_SRC = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCACQAIADASIAAhEBAxEB/8QAHAAAAgIDAQEAAAAAAAAAAAAABQYDBAECBwAI/8QAQRAAAQMDAgMGAwQGCAcAAAAAAQIDBAAFERIhBjFBBxMiUWGBMnGRFBVCoQgWI1KxsjNygpLB0eHwFyQnNENVYv/EABkBAAMBAQEAAAAAAAAAAAAAAAECAwQABf/EACsRAAICAQMDAwIHAQAAAAAAAAABAhEDEiExBBNBIlGRYXEFFDJCgaGxwf/aAAwDAQACEQMRAD8A+ZO60HBSBW6QMcq2UNylWcjYjyrUeFaU4UrUQAEjJJ9BUastVEDo/aGtC2T0rqvDv6P3Ft7Zbm3cROFYCxqDt2UUvLT1KGBlZ/taR600x+zzse4RUfvi43jiySjZTaFCKwr2QSoe6xTJUK9z5+OBzNEbbw7ebzj7rs9yn5OP+Vird/lFfQTXaTwzw+R+qvZ9YbetJGmQuKhx3brrUFH86zK7deOJKQlmciKjoltAGK7XFeTtDOQQOxftIuISqPwRfcKOAXoymv58UXj/AKPfaq9hKODJSQd8uSGUY+q6bne0Li+Y4FvcQTirJ3SvFRHiniFR3vU4kebppe5H2D2mLR/Ry7UgRq4YA21f96xsP79ROfo8dqjYKv1QkLAGToksqx9F86ZP1ivxHiu85XzdNTs8XcSsZDN6loBwPjJ/jQ7kfYPaYgzuyHtDtqVGVwZeUpQMkoY7wD+7mlmdZbpblETrVcIhHMPx1ox9RXeYvaVxhERpavchQznCzmjMPtm4oZSESxEltk5UHGwc+x296KnEDxSPlolJ5EVjFfUkni/gviJAb4i4EtTi1HKnmmQhf1HWhUnse7LOJmyu1TrlYnzvpLodRnywd/aqRafDEcWuT5wIrGK7BxD+jVxTbmXJdilwb/GTvhhWh3H9U7fnXK7lap1olKi3GI/EeSSCh1JSfbzotNCjnZbYntBvzVq7pabxNX3bCmB4Vq55X5JABJPQA11C3q4X7H2hH4eQi7cRgFEi+vN5IVyKYyTkNoG4141K36Yws9lMFzh5ri68OBK5MaOmGy4yvIGsErwfUBI+RNC3Ct91Tq/iV+QqblSLxiX71xLd7+849OmOud58WVHf5k7n3Job3Y5kZPmamS2ccqlDKSAcGottlaINOBuMipkNk9MCpm2wSE436Abk/wCNTJYOvRjCv3eZ+gyaAaMMsjapu49Kk7htnBfkIYGP/KtDf8ygfyrK5VpaTlc9lWP3HFr/AJGzXUdsRBnJ3xW5YA6A1o3ebAskKnBHqpD6f4tVILrw3/7eMFcsF/H8yRR0htG6Weor3dHyq0wbW+n9jd4/nlSgQfTIJq2bPLS33rfdvtY+JkhePpQDsCS0a8Ggk6hkEeVXNODjkfIisFrPMUUCixa+Ibla3EqYfWEp5AHFMkniG08Zxfu/ii2MTWyMJdCAHEHz/wB70pd1jfFYA0nKSRVIzaJygmX+BrDFPCvFzVjkKnNBaX1FaT3raSg88DllB3OKTkJGnltTH2B3D/qmbGveNfITzLjZUMam094hW/UaVD5KNQcWcNSbBxVdrQnQ2xBfKRJdUEthCgFIyrqdKhsN/Spqd5Hjf3AnSBLeCcDfJwMDJqfucI1EpCRsVE4SD5FXU+ic0NN6iMzEW+CDLmOK0lxY0oT8xzx6fWnVjh3W2l+Y8687jr4QPQeQppenkrig8j2F2OXHPClIKPUFIPsDk+59qJM25x0aNTmg/gR4E/QY/OjLUNqPshtAHoKtNpSnfPPzNQc2boYIx+oIj2RLKsojtoPnpGatiPjYqP15VcURqPpUTwKfFgn1AoamytIi0nkTkDzqJbDawQppsg9CKlQCT8630pzgj6GjbBpQKftkRasLiMn+wKr/AHamOvvIbz0RwclNLI/KjK2EZyCv3NQuNDG2aOoV44+wKdvc6MrTcGUT2gMd6nwuAe3Op482PLb1xF609UHZSfavSGAsEEA0EkQHYzvfR8trHlyPzqkWjNkxVug9q1c+tYWjbbeqtunJmeB0aHk8wBzNXFKwRpwoq2A9appMzZb7H77M4N7XYIuFuNrj3DVAdT3ZSHFK/o98EABWOoHuAKDfpOXGV/xKuLf2h1TD7cd5ghZ8CS0kEDyGpJ5VXhdoV4tU8vPIZnFsh1HfDdKkkEEeuRVn9JORHv8AcLDxHHkIUZUcNLQlOCkfGkHz2WR7UiUlmW+zT+dv+EmlViLwHAdeu7JbQAQfixkj1rvS4KG443KyBvnzpE7IeHylP3q7JS2G+SSM10u6hUhvvGQcq86vOFno9LCoX7itJcQ2SCQK2jrLgCQ1nyNC704ttZShoagd1FQI/Kg8693GAyHYbSXCPibSCf8AGsvbvYMsyTH1MYqAARv5V4QnNXibI9a5pH7V50d5LciJpT10gjH1xTLZ+0yNPUUOxFIUOoVkfOm7Vcgj1MWMirSCo6Nz69KoiD3a1ZJzmjEG7x5aUrRp9zzqtJVpdUQEjJ6HnXNIup2UVxXCnZKj8qhTEOMK5+XOiTcnmFJGw2qu5cIxwVu6T1GMUjjfAHOiBm0B1YPhHqRVlnhdqY4EKIB/qcq0jXy397pamNqUPIjarUW/RC8kLlJRvzNSlGSJSyLwwVxZ2eO2ixv32DPT3scEhot/0mN8c+tLNymOx+Enr04w5HmLbKUBxI0p2HIA88muucaKU7wQtTKC5r2QRyORXBeOryJLEK0sKUWmUBThJ2J6bfPetPStyjuef1DrdFLiJSbPPX30lhYUNlNuBQJodMnTL5CiNPPFcOIQG0FGkDA236nBNdsvtq4QReHb1YGm486KD3eUApGR8WlQ2PQGg8/hBfFtsauMi5vPzlgrKFLXgHfofD06VdOpD4+nlOGtFzs2t3e8O5Z+HJVurcUZu14chxiyk6lEFITjJqv2fNqtdiUlZWC2tSVEdN6p3h5t2UpxLwOSTqp8rpWjfBVjSAkk6ld5JdQhsbkqVpFD5/EVhtRCXlkqUPClKSc/Ic/pU0+H9uc0o3H7wOD7HpW1lgM8OCQuDEW1JkJUlUkLUH0ZGDpcBzv5VmTXkhNS/agEvjbhqQjGmQQFadRjkgH51JBuFnkLKorqcn8Kk4NDXOEJqnh9pvUyVES93ojftFnOc9TpyfOjsq2ru8hsotSIgbSEpUpeCcdSAN6d6fBGOtvdDPw+lEohtn4j0PKmg2laWvEhKOp9aW7BbW4LoWGhlKeZUTk/4UySLk+pvJ0gAfhqLZthGkA7s6LeglecHYHFK8yHOuSFpjLQ2CPxKxRviBz7wabQpakpSroaTrnapDiHi7IuDKxnuW207K9SrOB8sVTFuZ8/Joezq4qHeLuQZQTnCMnJrzXC9xhqLTc55YH4l0FgRr2/LZhRE3GM9n9o+5LUtCvbASkfU03w4nE8N7PcO3WK2cOOtJ1Y9xVZWvJljpb4GWwybrK4dmWpy4LLLKfDqOANv9a5grh185KG1yMHm04lZP0Oa63ZWlIizVll5tLjQJStBFci+zJS4soBSdasFJweZpcC5oXqfCOnS0Mm8yoecPLaSpO2dQ3H+VSRp4gttha+6DYCdKEaj9BQcl26cRw5zijHUCUq7oE7YPKpZkz7svaXZxcdhlWA4Oe4qmTG0bOiy6ouPsPEFCXLRqStTaVnI1DCvpSvdYDgeUUHVk8z/lXUI1sSmG0tvwIW2FBJ8qWriyxqUNDeQaplx1FWbeVYgGOtheyVK/hUzUxWyXG9uW1FZtuU5kgDH7pVVRNvDQOlCc+dY2jkiREpjGAAVeWKsISCnVgHHkKibhAbr2PPnRCNIjR04QgqV5k5A9qFAomjtFDQWW1pB5ahjNecWvcFAwduVbqj3KclLiiptr8Odh896sJgStIJYUtP74GRStBRStloi3NbsV4JS6sZbVk86pzLWqMpcd74mzg7002GOLRxFDdnNtttqyD3n4QRzxWeJLOVXCXKZnQn46lbJZcypPzFCNqdIlNKxEFrbcXlOk+hpu4dvP3TEXG0s6TsUFO6qCOwVNKxkn161fs9rdeltd2oZKt0qGxqko3yTlBUNcm3IncPy5bcZDSijO4/PnXPOHuOuziBbxGmdmcd6Tslb65BcDiuRVlYynfoMiuuC3KcT93yXkR2lo8TgTqCBkb4HOuW8Y9ldv4bQzItvFduu8SS+pK4xKUPNnc5wknIGMHlgkedDFjjK4S/0x540lIe7b2B36DOjSVXS1rDbgLiQHBlPI4254oB2j8Ls8MyRb5EcOokJS6FrGQd8HH0pX/XS9stlVr4mv7jIycGQ54focV6XxldLvGQxc7lIckBOGXn0hxZ9BqO3tW+ctS3I9JN45+p7HWH1JYtcYJA0hkeHVk0lSld48o4HPNGpE9KYTDS3QshsDIGCfnS7If0rOB67UM07PZtUqPKSgkq5kcxQtchPekdKmflK0nBIyKATZKkZznHXflWR7sVzUeQqsOyHNCVpCMdBgj1zUhDUdGlGlWDufOlty6lASEgBJ2JzvU0WYtZKSrI6jzplEg+pQQujT91QW3L5Kgp/AYzmlWfnW8O/wAqzwDE+9Xbgo7Bbww4r54xmqYt78sFLbCSnopZ0ge9Vrnw3MejaGXmQvnhtWrHvTqMeGReWbdxQS+/ZT5T3iO6X++6dvngZq3b3JKJCtc0SAo5yBjH+lAWLZJiQ0ocdSpQ5hStwfSsszVQ3ElSClX5GmUF4OeWa/UPbie8byRv6Vdsivs8pC8ZweVLEO/JLWVaVHGdjjFNFgULgpBTyUelMsb8hfURqkO8NpdzLh7tbgSAXEIxqUjIyEk7A/Oknirh7hp5gS7GJzUha1h6NLR4m8HmFdcnpk+3XtHDljahwkuLAK3EjOPKpZHCNlkp0qhIHmU7E10ccU9zl+K6YPHp2/r+V/nk5JxP2vQZHAoi8PW26B5vDbmbZhpAAyVAoGkbjYCuXxe0KQi0lu42eHOQFFxt4MhD7JPVKhT0vtrt1ttTzNu4A48skNKTlWlLLKc8868gfTNcmu3b3MccRA4f4ctCYSCB31yYEh0++wx7VJSjLdK/qYY6oqh5a4nev8CPcXWXmwpATqX+L/eK85K7xvbkeVbRp675Y0LebjNuqTrAjNd23yB2TvQNL6kqKCMEHBBrpybdnr44uMEmXPtAJCPhNU50QOjmMr2BrIXpJJUc+VQvpU7uhSh1xzqIs+Cq1wjMTI/ayMJIzqwMkU08K9nH3zcxFYvK4y1JKgXMHUfIUFghxlYU6tasnbO+KNCT3ZS4lRBG4KTjFFzl7mZ4tUWlsw7cezC6WovtvzoCltJ1pHMOD5HcGk+W1KaJwWG8c9KTRWZc5Mslb0p1aiMa1LJOPLJoDOeeOwczjz3poyfkbFGUF63ZX7tRPjLRPng5NZ+7Fy1AKfWhI8k/wzmoW23lLBC9vKikQOBWlQJPrReSuCkkpLc3h2OJHILjzqwemrApws0liEpAZACR60svJ7tvf+NWbAxLvd0YtcNClvunJCSBpRndWTt/qRVVmpXJmaWNcJH0hwlNNwsEWQpQJWDgZ3AzgUYoVa7Zb7TFZjtNNMqQkbPKClj3qzOT36O5bnCOs9UqAV7V3cTPNa32PgTtI7deLe0xQYuDzUG2oOUwIWpLaj5rJJKz8zjyApCEhQOxOPKquayFeddixwxR0QVI0Nt7nY+znisuwkxXXNRbGNzuBTTckIX+0BHi3BHnXBrFeF2aeh9JPdk4WB5V1yNORKjIdZXqaWMgg7VLJGmelhza40yy5IWjfOcdaw1cVpz3agPmKouvKycbiq7kjnuM+nOpWNKxkjz2Vt4cJUvyrwkugnulascwelK/3kGvicUn51qq+9znxOHPIpIpkrJ3QwrmOE4K0pGd89KgW6kKOXMk+RpXlcRjf4k56AbVUTxH/wDSh8hTKIHkQ7xZSI7iVKwpPUZox97sqGtCceea5szxEpJ8KSsnpRmFPjKeaZus162tOqCVvNM9+WEnmooG6seQpZR8iTyjUX37gspjJJGMqWR4UDlk13/shslljcOSGY7MV+Ul7TJf5vOHGQVZ3SBnwgbbZ55NfMyoD0CQh2z3iNf4KFA/ao6VIJHq2vxJP1r6A4Jff46t0O92i8RI12tw7qS2I3jUjcBDhwM/DkEZrsUuW+CufDD8tHJF+q/f4CN4bS5PldzKusyJABQ6XkKAaVzISrG45UuSL7Z9AWhMmaE/hUoLA9gcio+LI1+4elyLvZuKn7v9oWW5VojgNKORgkDJGw61yhXA8QXIXS38RXBmSk61Q0n4R1STz2qc3Ga1xls/gWGGoeuNv77/AAf/2Q==';
+
+var FACE = { img: null, norm: null, gold: null, ready: false };
+
+function tintGold(g, w, h) {
+  var d = g.getImageData(0, 0, w, h), p = d.data;
+  for (var i = 0; i < p.length; i += 4) {
+    if (!p[i + 3]) continue;
+    var L = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]) / 255;
+    L = Math.min(1, L * 1.05 + 0.06);
+    p[i] = 255 * L; p[i + 1] = 214 * L; p[i + 2] = 74 * L;
+  }
+  g.putImageData(d, 0, 0);
+}
+
+function cutOutHead(gold) {
+  var iw = FACE.img.width, ih = FACE.img.height;
+  var c = document.createElement('canvas');
+  c.width = iw; c.height = ih;
+  var g = c.getContext('2d');
+  g.save();
+  g.beginPath();
+  g.ellipse(iw / 2, ih / 2, iw / 2 - 1, ih / 2 - 1, 0, 0, Math.PI * 2);
+  g.clip();
+  g.drawImage(FACE.img, 0, 0);
+  g.restore();
+  if (gold) tintGold(g, iw, ih);
+  return c;
+}
+
+(function loadFace() {
+  var img = new Image();
+  FACE.img = img;
+  img.onload = function () {
+    FACE.norm = cutOutHead(false);
+    FACE.gold = cutOutHead(true);
+    FACE.ready = true;
+  };
+  img.src = FACE_SRC;
+})();
+
+// Photographs get smoothed; everything else stays hard-edged.
+function drawFace(x, y, w, h, gold) {
+  var src = gold ? FACE.gold : FACE.norm;
+  if (!FACE.ready || !src) {           // data URI not decoded yet
+    ctx.fillStyle = gold ? COL.gold : COL.skin;
+    ctx.fillRect(Math.round(x) + 1, Math.round(y) + 1, w - 2, h - 2);
+    return;
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(src, x, y, w, h);
+  ctx.imageSmoothingEnabled = false;
+}
 
 // 3x5 pixel font ------------------------------------------------------------
 // Each glyph is five 3-wide rows, flattened to a 15-cell string at load time.
@@ -376,7 +400,7 @@ function spawn() {
   if (r < bombChance()) kind = 'bomb';
   else if (r < bombChance() + goldChance()) kind = 'gold';
 
-  var sp = kind === 'bomb' ? BOMB : TERRY;
+  var sp = kind === 'bomb' ? BOMB : FACE_SP;
   var maxX = W - sp.w - 2;
   // Keep a new drop clear of anything still near the top. A bomb sharing a
   // lane with a Terry is a no-win: catching costs a life, missing costs one too.
@@ -386,7 +410,6 @@ function spawn() {
   entities.push({
     kind: kind,
     sp: sp,
-    pal: kind === 'gold' ? TERRY_GOLD_PAL : null,
     x: x,
     ex: x,
     y: -sp.h,
@@ -490,14 +513,22 @@ function resize() {
   var cs = getComputedStyle(document.body);
   vw -= parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
   vh -= parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  var s = Math.min(vw / W, vh / H);
-  // On low-DPI screens snap to a whole ratio so pixels stay even; on retina
-  // phones the uneven device pixels are invisible and the extra size is worth
-  // far more, so take the exact fit.
-  if (s > 1 && (window.devicePixelRatio || 1) < 2) s = Math.floor(s);
-  scale = s;
-  canvas.style.width = Math.round(W * s) + 'px';
-  canvas.style.height = Math.round(H * s) + 'px';
+  scale = Math.min(vw / W, vh / H);   // CSS pixels per game pixel
+
+  // The backing store runs at device resolution rather than a flat 160x240,
+  // because Terry is a photograph and a 160x240 buffer would reduce him to
+  // mush. R is kept a whole number of device pixels per game pixel so the
+  // pixel-art sprites and font still land on exact pixel boundaries.
+  var dpr = Math.min(window.devicePixelRatio || 1, 3);
+  var R = clamp(Math.round(scale * dpr), 1, 10);
+
+  canvas.style.width = Math.round(W * scale) + 'px';
+  canvas.style.height = Math.round(H * scale) + 'px';
+  if (canvas.width !== W * R) { canvas.width = W * R; canvas.height = H * R; }
+
+  // resizing a canvas resets its context, so re-establish both every time
+  ctx.setTransform(R, 0, 0, R, 0, 0);
+  ctx.imageSmoothingEnabled = false;
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
@@ -649,7 +680,8 @@ function drawBackground() {
 function drawEntities() {
   for (var i = 0; i < entities.length; i++) {
     var en = entities[i];
-    drawSprite(en.sp, en.ex, en.y, en.pal);
+    if (en.kind === 'bomb') drawSprite(BOMB, en.ex, en.y);
+    else drawFace(en.ex, en.y, en.sp.w, en.sp.h, en.kind === 'gold');
   }
 }
 
@@ -681,21 +713,14 @@ function drawHUD() {
   var lv = 'lv' + level;
   drawText(lv, Math.round((W - textWidth(lv)) / 2), 3, COL.cyan);
 
-  // lives as little Terry heads: cap band, two eyes, moustache
+  // lives, as little photographs of Terry
   for (var i = 0; i < 3; i++) {
-    var lx = W - 4 - (i + 1) * 9;
+    var lx = W - 4 - (i + 1) * 10;
     if (i < lives) {
-      ctx.fillStyle = COL.cap;
-      ctx.fillRect(lx, 2, 7, 2);
-      ctx.fillStyle = COL.skin;
-      ctx.fillRect(lx, 4, 7, 5);
-      ctx.fillStyle = '#211816';
-      ctx.fillRect(lx + 1, 5, 1, 1);
-      ctx.fillRect(lx + 5, 5, 1, 1);
-      ctx.fillRect(lx + 2, 7, 3, 1);
+      drawFace(lx, 1, 8, 9, false);
     } else {
       ctx.fillStyle = '#2b3350';
-      ctx.fillRect(lx, 3, 7, 6);
+      ctx.fillRect(lx + 1, 2, 6, 7);
     }
   }
 }
@@ -707,18 +732,18 @@ function drawTitle() {
   ctx.fillStyle = '#232a44';
   ctx.fillRect(28, 88, W - 56, 1);
 
-  drawSprite(TERRY, W / 2 - TERRY.w / 2, 98 + bob);
+  drawFace(W / 2 - 14, 94 + bob, 28, 31, false);
 
   drawTextCentered('swipe to move', 130, COL.white);
   drawTextCentered('catch the terrys', 142, COL.dim);
   drawTextCentered('dodge the bombs', 154, COL.dim);
 
-  drawSprite(TERRY, 24, 164);
-  drawText('+1', 42, 171, COL.white);
-  drawSprite(TERRY, 62, 164, TERRY_GOLD_PAL);
-  drawText('+5', 80, 171, COL.gold);
-  drawSprite(BOMB, 100, 167);
-  drawText('-1', 114, 171, COL.red);
+  drawFace(24, 163, 18, 20, false);
+  drawText('+1', 44, 171, COL.white);
+  drawFace(62, 163, 18, 20, true);
+  drawText('+5', 82, 171, COL.gold);
+  drawSprite(BOMB, 102, 167);
+  drawText('-1', 116, 171, COL.red);
 
   if (((titleTime * 2) | 0) % 2 === 0) drawTextCentered('tap to start', 198, COL.gold);
   if (best > 0) drawTextCentered('best ' + pad(best, 5), 212, COL.dim);
