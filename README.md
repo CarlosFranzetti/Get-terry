@@ -1,5 +1,7 @@
 # TERRY CATCH
 
+**Play: https://get-terry.vercel.app**
+
 A tiny 8-bit arcade game built for iOS Safari. Terrys fall from the sky — swipe
 to slide your basket under them, and don't catch the bombs.
 
@@ -9,7 +11,9 @@ in code.
 
 ## Play
 
-Open `index.html` in a browser, or serve the folder and visit it on your phone:
+The deployed copy lives at [get-terry.vercel.app](https://get-terry.vercel.app).
+To run it locally instead, open `index.html` in a browser, or serve the folder
+and visit it on your phone:
 
 ```sh
 python3 -m http.server 8000
