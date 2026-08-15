@@ -11,7 +11,9 @@ in code.
 
 ## Play
 
-The deployed copy lives at [get-terry.vercel.app](https://get-terry.vercel.app).
+The deployed copy lives at [get-terry.vercel.app](https://get-terry.vercel.app),
+and redeploys automatically on every push to this branch.
+
 To run it locally instead, open `index.html` in a browser, or serve the folder
 and visit it on your phone:
 
