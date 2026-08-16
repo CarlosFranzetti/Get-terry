@@ -46,6 +46,12 @@ it, so your thumb never covers the action.
 - Every 5 catches in a row raises the score multiplier, up to ×5. Taking a hit
   resets the streak.
 - Every 8 catches raises the level, and everything falls faster.
+- **Every 5th level is a BLOOD ROUND.** The sky turns over, bombs get more
+  common, and any Terry you fail to catch hits the ground and detonates —
+  blood sprays up the screen, runs back down it in streaks, and pools on the
+  floor. Catching one pops it in the basket instead. A miss costs the same
+  single life it always did, but the round pays **double**, so it's a gamble
+  rather than a punishment.
 - Every 60 points earns a life back, up to the maximum of three.
 - Your best score is saved in `localStorage`.
 
