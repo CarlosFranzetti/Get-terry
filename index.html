@@ -367,6 +367,7 @@ var mode = 'title';           // title | play | over
 var player, entities, particles, floaters, stars, drips, splats;
 var score, lives, level, caught, streak, spawnTimer, shake, flash, hintTimer;
 var overTimer, titleTime, newBest, nextLifeAt, bleedTimer;
+var bloodRound, bloodSince, bloodAmount;
 
 var MAX_LIVES = 3, LIFE_EVERY = 60;
 
@@ -381,6 +382,7 @@ function resetGame() {
   nextLifeAt = LIFE_EVERY;
   spawnTimer = 0.6; shake = 0; flash = 0; hintTimer = 3.2;
   bleedTimer = 0;
+  bloodRound = false; bloodSince = 0; bloodAmount = 1;
   newBest = false;
 }
 
@@ -485,10 +487,19 @@ function updateBlood(dt) {
 // Difficulty ramps through fall speed, not through crowding: too many Terrys
 // on screen at once creates splits one basket physically cannot cover, which
 // reads as unfair rather than hard.
-// Every fifth level is a BLOOD ROUND: anything you fail to catch hits the
-// ground and detonates. Same one-life cost as a normal miss, but it pays
-// double, so the round is a gamble rather than a punishment.
-function isBloodRound() { return level % 5 === 0; }
+// A BLOOD ROUND strikes at random rather than on a schedule: anything you
+// fail to catch hits the ground and detonates. Same one-life cost as a normal
+// miss, but it pays double, so it is a gamble rather than a punishment.
+function isBloodRound() { return bloodRound; }
+
+// Rolled fresh at every level up. Never back to back, never before level 3,
+// and guaranteed if the run has gone six levels without one — random, but
+// not so random that a run never sees blood or drowns in it.
+function rollBloodRound() {
+  if (level < 3 || bloodRound) return false;
+  if (level - bloodSince >= 6) return true;
+  return Math.random() < 0.3;
+}
 
 function fallSpeed() { return 56 + level * 10; }
 function spawnDelay() { return Math.max(0.5, 1.6 - level * 0.08); }
@@ -700,7 +711,7 @@ function update(dt) {
   if (isBloodRound()) {
     bleedTimer -= dt;
     if (bleedTimer <= 0) {
-      bleedTimer = rand(0.2, 0.75);
+      bleedTimer = rand(0.2, 0.75) / bloodAmount;
       var bx = rand(2, W - 3), by = rand(13, 44);
       addDrip(bx, by, 0.85);
       splat(bx, by, rand(1, 2.4), rand(4, 7));
@@ -752,7 +763,7 @@ function update(dt) {
         var gain = (en.kind === 'gold' ? 5 : 1) * m * (isBloodRound() ? 2 : 1);
         score += gain;
         if (isBloodRound()) {
-          gore(cx, rimY - 1, 0.75);          // pops in the basket
+          gore(cx, rimY - 1, 0.75 * bloodAmount);   // pops in the basket
           SFX.squelch();
         } else {
           burst(cx, rimY, en.kind === 'gold' ? COL.gold : COL.green, en.kind === 'gold' ? 14 : 8, 1);
@@ -770,6 +781,11 @@ function update(dt) {
         var nl = 1 + Math.floor(caught / 8);
         if (nl > level) {
           level = nl;
+          bloodRound = rollBloodRound();
+          if (bloodRound) {
+            bloodSince = level;
+            bloodAmount = rand(0.75, 1.7);     // how gory this particular one gets
+          }
           if (isBloodRound()) {
             SFX.bloodRound();
             floater(W / 2, 88, 'blood round', COL.blood3);
@@ -788,8 +804,8 @@ function update(dt) {
     // hits the ground and comes apart.
     if (isBloodRound() && en.kind !== 'bomb' && bottom >= GROUND_Y) {
       entities.splice(e, 1);
-      gore(cx, GROUND_Y - 3, 1.7);
-      splat(cx, GROUND_Y - 1, rand(6, 10), 9);
+      gore(cx, GROUND_Y - 3, 1.7 * bloodAmount);
+      splat(cx, GROUND_Y - 1, rand(6, 10) * bloodAmount, 9);
       SFX.burstHead();
       loseLife(cx, GROUND_Y, 'blast');
       continue;
@@ -807,6 +823,14 @@ function update(dt) {
 function drawBackground() {
   // sky gradient, banded like a real 8-bit tileset
   var bands = 6, blood = mode === 'play' && isBloodRound();
+
+  // Base coat, drawn oversized. Screen shake translates everything that
+  // follows, and the canvas is never cleared, so without this the exposed
+  // margin keeps the previous frame and ghosts the HUD.
+  var M = 14;
+  ctx.fillStyle = blood ? 'rgb(58,12,18)' : 'rgb(20,26,48)';
+  ctx.fillRect(-M, -M, W + M * 2, H + M * 2);
+
   for (var b = 0; b < bands; b++) {
     var t = b / (bands - 1);
     var r, g, bl;
@@ -823,11 +847,11 @@ function drawBackground() {
     var s = stars[i];
     ctx.fillRect(s.x | 0, s.y | 0, s.s, s.s);
   }
-  // floor
+  // floor, also oversized for the same reason
   ctx.fillStyle = COL.grass;
-  ctx.fillRect(0, GROUND_Y, W, 2);
+  ctx.fillRect(-M, GROUND_Y, W + M * 2, 2);
   ctx.fillStyle = COL.ground;
-  ctx.fillRect(0, GROUND_Y + 2, W, H - GROUND_Y - 2);
+  ctx.fillRect(-M, GROUND_Y + 2, W + M * 2, H - GROUND_Y - 2 + M);
   ctx.fillStyle = '#1e1830';
   for (var x = 0; x < W; x += 8) ctx.fillRect(x + ((x / 8) % 2 ? 4 : 0), GROUND_Y + 5, 3, 1);
 }
