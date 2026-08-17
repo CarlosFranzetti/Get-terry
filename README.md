@@ -46,10 +46,11 @@ it, so your thumb never covers the action.
 - Every 5 catches in a row raises the score multiplier, up to ×5. Taking a hit
   resets the streak.
 - Every 8 catches raises the level, and everything falls faster.
-- **A BLOOD ROUND can strike at any level**, rolled fresh each time you level
-  up — never twice in a row, never before level 3, and guaranteed if six
-  levels have passed without one. How gory it gets is random too, so no two
-  are alike. The sky turns over, bombs get more
+- **A BLOOD ROUND can break out at any moment.** It runs on its own clock
+  rather than the level, so the first 20 seconds of a run are safe and after
+  that anything can happen — it can hit on level 1. Each one lasts 9–18
+  seconds, and how gory it gets is random too, so no two are alike. The sky
+  turns over, bombs get more
   common, and any Terry you fail to catch hits the ground and detonates —
   blood sprays up the screen, runs back down it in streaks, and pools on the
   floor. Catching one pops it in the basket instead. A miss costs the same

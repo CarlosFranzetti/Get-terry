@@ -367,7 +367,11 @@ var mode = 'title';           // title | play | over
 var player, entities, particles, floaters, stars, drips, splats;
 var score, lives, level, caught, streak, spawnTimer, shake, flash, hintTimer;
 var overTimer, titleTime, newBest, nextLifeAt, bleedTimer;
-var bloodRound, bloodSince, bloodAmount;
+var bloodRound, bloodAmount, bloodTimer, playTime, nextBloodAt;
+
+// Nothing bloody happens for the first 20 seconds of a run. After that it can
+// begin at any moment, at any level, mid-round.
+var BLOOD_SAFE = 20;
 
 var MAX_LIVES = 3, LIFE_EVERY = 60;
 
@@ -382,7 +386,8 @@ function resetGame() {
   nextLifeAt = LIFE_EVERY;
   spawnTimer = 0.6; shake = 0; flash = 0; hintTimer = 3.2;
   bleedTimer = 0;
-  bloodRound = false; bloodSince = 0; bloodAmount = 1;
+  bloodRound = false; bloodAmount = 1; bloodTimer = 0;
+  playTime = 0; nextBloodAt = BLOOD_SAFE + rand(0, 22);
   newBest = false;
 }
 
@@ -487,18 +492,25 @@ function updateBlood(dt) {
 // Difficulty ramps through fall speed, not through crowding: too many Terrys
 // on screen at once creates splits one basket physically cannot cover, which
 // reads as unfair rather than hard.
-// A BLOOD ROUND strikes at random rather than on a schedule: anything you
-// fail to catch hits the ground and detonates. Same one-life cost as a normal
-// miss, but it pays double, so it is a gamble rather than a punishment.
+// A BLOOD ROUND can begin at any moment once the opening 20 seconds are up —
+// it is on a clock of its own, not tied to the level. Anything you fail to
+// catch hits the ground and detonates. Same one-life cost as a normal miss,
+// but it pays double, so it is a gamble rather than a punishment.
 function isBloodRound() { return bloodRound; }
 
-// Rolled fresh at every level up. Never back to back, never before level 3,
-// and guaranteed if the run has gone six levels without one — random, but
-// not so random that a run never sees blood or drowns in it.
-function rollBloodRound() {
-  if (level < 3 || bloodRound) return false;
-  if (level - bloodSince >= 6) return true;
-  return Math.random() < 0.3;
+function startBloodRound() {
+  bloodRound = true;
+  bloodTimer = rand(9, 18);          // how long the horror lasts
+  bloodAmount = rand(0.75, 1.7);     // how gory this particular one gets
+  SFX.bloodRound();
+  floater(W / 2, 88, 'blood round', COL.blood3);
+  flash = 0.22;
+  shake = 4;
+}
+
+function endBloodRound() {
+  bloodRound = false;
+  nextBloodAt = playTime + rand(14, 38);
 }
 
 function fallSpeed() { return 56 + level * 10; }
@@ -707,6 +719,15 @@ function update(dt) {
 
   if (hintTimer > 0) hintTimer -= dt;
 
+  // --- blood runs on its own clock, so it can break out mid-level
+  playTime += dt;
+  if (bloodRound) {
+    bloodTimer -= dt;
+    if (bloodTimer <= 0) endBloodRound();
+  } else if (playTime >= BLOOD_SAFE && playTime >= nextBloodAt) {
+    startBloodRound();
+  }
+
   // the screen itself bleeds for the whole round, not just on a kill
   if (isBloodRound()) {
     bleedTimer -= dt;
@@ -781,20 +802,8 @@ function update(dt) {
         var nl = 1 + Math.floor(caught / 8);
         if (nl > level) {
           level = nl;
-          bloodRound = rollBloodRound();
-          if (bloodRound) {
-            bloodSince = level;
-            bloodAmount = rand(0.75, 1.7);     // how gory this particular one gets
-          }
-          if (isBloodRound()) {
-            SFX.bloodRound();
-            floater(W / 2, 88, 'blood round', COL.blood3);
-            flash = 0.22;
-            shake = 4;
-          } else {
-            SFX.level();
-            floater(W / 2, 90, 'level ' + level, COL.cyan);
-          }
+          SFX.level();
+          floater(W / 2, 90, 'level ' + level, COL.cyan);
         }
       }
       continue;
@@ -919,8 +928,7 @@ function drawHUD() {
 
   if (mode === 'play' && isBloodRound()) {
     var pulse = ((titleTime * 4) | 0) % 2 === 0;
-    var bl = 'blood ' + level;
-    drawText(bl, Math.round((W - textWidth(bl)) / 2), 3, pulse ? COL.blood3 : COL.blood);
+    drawText('blood', Math.round((W - textWidth('blood')) / 2), 3, pulse ? COL.blood3 : COL.blood);
   } else {
     var lv = 'lv' + level;
     drawText(lv, Math.round((W - textWidth(lv)) / 2), 3, COL.cyan);
@@ -945,21 +953,26 @@ function drawTitle() {
   ctx.fillStyle = '#232a44';
   ctx.fillRect(28, 88, W - 56, 1);
 
-  drawFace(W / 2 - 14, 94 + bob, 28, 31, false);
+  drawFace(W / 2 - 14, 92 + bob, 28, 31, false);
 
   drawTextCentered('swipe to move', 130, COL.white);
-  drawTextCentered('catch the terrys', 142, COL.dim);
-  drawTextCentered('dodge the bombs', 154, COL.dim);
 
-  drawFace(24, 163, 18, 20, false);
-  drawText('+1', 44, 171, COL.white);
-  drawFace(62, 163, 18, 20, true);
-  drawText('+5', 82, 171, COL.gold);
-  drawSprite(BOMB, 102, 167);
-  drawText('-1', 116, 171, COL.red);
+  drawFace(24, 142, 18, 20, false);
+  drawText('+1', 44, 150, COL.white);
+  drawFace(62, 142, 18, 20, true);
+  drawText('+5', 82, 150, COL.gold);
+  drawSprite(BOMB, 102, 146);
+  drawText('-1', 116, 150, COL.red);
 
-  if (((titleTime * 2) | 0) % 2 === 0) drawTextCentered('tap to start', 198, COL.gold);
-  if (best > 0) drawTextCentered('best ' + pad(best, 5), 212, COL.dim);
+  // the warning
+  ctx.fillStyle = COL.blood2;
+  ctx.fillRect(22, 170, W - 44, 1);
+  var beat = ((titleTime * 2.5) | 0) % 2 === 0;
+  drawTextCentered('blood strikes at random', 178, beat ? COL.blood3 : COL.blood);
+  drawTextCentered('heads burst - pays double', 189, COL.dim);
+
+  if (((titleTime * 2) | 0) % 2 === 0) drawTextCentered('tap to start', 205, COL.gold);
+  if (best > 0) drawTextCentered('best ' + pad(best, 5), 217, COL.dim);
 }
 
 function drawOver() {
